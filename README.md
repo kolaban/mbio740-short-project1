@@ -132,3 +132,11 @@ The file(s) prochloro_R1_R2_B5_visualization.pdf/rmd contain the code and associ
 Here is an example of the coverage in a GC rich region and a GC poor region, the coverage has been cut off to make the picture easier to see. The green line shows the GC content in that region.
 
 ![GC poor region](static/gc_image.png)
+
+### Final Note
+
+The final bam file produced by BWA was very large so instead of using it we converted the bam file we had back inot sam format since unmapped reads had been removed. To do this we used the following command:
+
+```Bash
+samtools view -h -o prochloro_R1_R2_B5_reduced.sam prochloro_R1_R2_B5.bam
+```
