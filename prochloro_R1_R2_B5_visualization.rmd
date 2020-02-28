@@ -1,0 +1,104 @@
+---
+output: 
+  pdf_document:
+    fig_caption: yes
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(nortest)
+library(knitr)
+plot_theme = (theme_classic() + theme(strip.text.x = element_text(size=12),axis.title=element_text(size=12,face="bold"), axis.text.y=element_text(size=10, angle = 0), axis.text.x=element_text(size=10, angle = 0, hjust=0.5), plot.title= element_text(hjust=0.5, size=10, face = "bold"), legend.title=element_text(size=12,face="bold"), legend.text=element_text(size=10), legend.key.size = unit(2,"line")))
+
+knitr::opts_chunk$set(python.reticulate = FALSE)
+```
+
+### Generating %GC over sliding window of 100bp
+The resulting bam file `prochloro_R1_R2_B5.bam` was parsed using pySAM for python as seen below into windows of 100bp. For each window, the number of reads occurring in that window, and the % GC was calculated. The resulting csv file `prochloro_R1_R2_B5_parsed.csv` was used for downstream analysis and visualization in R studio.
+
+```{python, eval = FALSE, error = TRUE, include = TRUE}
+# load packages
+import pysam
+import pandas as pd
+
+# load data
+samfile = pysam.AlignmentFile('prochloro_R1_R2_B5.bam', 
+  'rb', index_filename = 'prochloro_R1_R2_B5.bam.bai')
+
+window = 100
+cols = ['refname', 'window_n', 'start', 'stop', 'n_reads', 'gc_percent']
+dat = pd.DataFrame(columns=cols)
+
+for i in range(len(samfile.references)):
+    refname = samfile.references[i]
+    seqlen = samfile.lengths[i]
+    for j in range(1, seqlen, window):
+        stop = j+window-1 if j+window-1 < samfile.lengths[i] else samfile.lengths[i]
+        window_n = stop/window
+        region_set = set()
+        sequence = read.query_sequence.upper()
+        gc_percent = float(sequence.count('C') + sequence.count('G'))/window*100
+        for read in samfile.fetch(refname, j, stop):
+            region_set.add(read.query_name)
+        dat = dat.append({'refname': refname, 'window_n':(window_n), 'start':j, 
+            'stop':stop, 'n_reads':len(region_set), 'gc_percent':gc_percent}, 
+            ignore_index =True)
+dat.csv('prochloro_R1_R2_B5_parsed.csv')
+```
+
+
+```{r, include = FALSE}
+setwd("~/Google Drive/Coursework/MBIO 750/short_project_1/")
+prochl <- read.csv("prochloro_R1_R2_B5_parsed.csv")
+```
+
+### Visualization of enrichment
+We visualized the entire genome to evaluate coverage and GC content in areas of enhanced recruitment (Figure 1). In Figure 1 we see that coverage is relatively even across the genome, with spikes of enhanced coverage. To confirm that read recruitment is not even across the genome, we tested the distribution of reads mapped in each 100bp window. We used an Anderson-Darling test for normal distribution. This test was chosed as it is better designed for large data sets such as ours where the number of windows = `r length(prochl$window_n)`.  The results of our Anderson-Darling test indicate that read coverage is not normally distributed across the genome (p<<0.05). This is particularly notable in the region at ~36000 bp where coverage is >8000 reads. This spike clearly has enhanced GC content, however, it is unclear if other enhancement areas are also GC rich. 
+
+```{r 1, fig.cap = "Coverage of Prochlorococcus genome across 100bp windows colored by GC content.", echo = FALSE}
+# plot coverage across 100bp windows
+prochl %>% ggplot(aes(x=start, y= n_reads, color = gc_percent)) + geom_col() + scale_color_continuous(low = "yellow", high = "darkmagenta") -> coverage_seq
+
+coverage_seq + ylab("Coverage, N mapped reads") + xlab("base pairs") + plot_theme  
+```
+
+```{r 2, echo = FALSE}
+# Not normally distributed. QQplot is not a straight line 
+set.seed(1234)
+
+ad.test(prochl$n_reads) ## coverage is non normal across genome. 
+```
+
+## Determining enhanced coverage with high GC content
+To determine if uneven coverage occurs with high GC content, we categorized "high" as >50%, and "low" as <50%. Given that coverage is not normally distributed for areas of high or low GC content (Figure 2), we performed a Mann-Whitney test. The null hypothesis is "a given read coverage value is equally likely to occur in high or low GC content areas". Based on results of this test, **we cannot reject the null hypothesis (p = 0.96)**, suggesting that exaggerated recruitment occurs in both high and low GC content as seen in Table 1, and visualized in Figure 2.
+
+```{r 3, fig.cap = "GC % vs. Read coverage.", echo = FALSE, warning=FALSE}
+prochl %>% mutate(gc_label = ifelse(gc_percent > 50, "high", "low")) -> prochl
+
+tot_reads <- sum(prochl$n_reads)
+
+prochl %>% group_by(gc_label) %>%
+  summarise(
+    window_count = n(),
+    max_coverage = max(n_reads),
+    mean = mean(n_reads, na.rm = TRUE),
+    sd = sd(n_reads, na.rm = TRUE), 
+    observed_read_occurance = (sum(n_reads)/tot_reads)
+  ) -> sum
+
+kable(sum, caption = "Table 1: summary of high and low GC content areas")
+
+prochl %>% ggplot(aes(x=gc_percent, y=n_reads, fill = gc_label)) + scale_fill_manual(values = c("darkmagenta", "gold")) + geom_col() -> coverage_gc
+coverage_gc + ylab("Coverage, N mapped reads") + xlab("% GC") + plot_theme
+
+wilcox.test(n_reads ~ gc_label, data=prochl) 
+
+```
+
+
+
+
