@@ -2,7 +2,7 @@
 
 Group: Oscar Ramfelt, Gabrielle Stedman
 
-Link to Github repository: https://github.com/kolaban/mbio740-short-project1
+Link to Github repository [here](https://github.com/kolaban/mbio740-short-project1)
 
 ## Reference Genome and Sequence Data
 
@@ -125,7 +125,7 @@ After taking a look at the output via samtools it seems that the better program 
 
 ### GC Content and statistical analysis
 
-The file(s) prochloro_R1_R2_B5_visualization.pdf/rmd contain the code and associated information used to analyze the genome recruitment as well as the statistical analysis. The tables for question 4 can be found in either a csv or tsv format with the directory "data". 
+The file(s) prochloro_R1_R2_B5_visualization.pdf/rmd contain the code and associated information used to analyze the genome recruitment as well as the statistical analysis. These files are available on the github repository. The tables for question 4 can be found in either a csv or tsv format with the directory "data".
 
 ### Examples of GC rich vs GC poor regions
 
